@@ -13,8 +13,6 @@
     "socket.io": "^4.7.4",
     "pino": "^8.17.2",
     "qrcode": "^1.5.3",
-    "archiver": "^6.0.1",
-    "node-cron": "^3.0.3",
-    "axios": "^1.6.7"
+    "archiver": "^6.0.1"
   }
 }

@@ -10,7 +10,6 @@ const pino = require('pino');
 const qrcode = require('qrcode');
 const fs = require('fs');
 const path = require('path');
-const NodeCache = require('node-cache');
 
 class WhatsAppService {
   constructor(io) {
@@ -28,12 +27,10 @@ class WhatsAppService {
 
   async connect() {
     try {
-      // Limpar QR anterior
       this.qrCode = null;
       this.io.emit('qr-code', null);
       
       const { state, saveCreds } = await useMultiFileAuthState('auth_baileys');
-      
       const { version } = await fetchLatestBaileysVersion();
       
       this.sock = makeWASocket({
@@ -48,14 +45,7 @@ class WhatsAppService {
         markOnlineOnConnect: true,
         syncFullHistory: false,
         connectTimeoutMs: 60000,
-        defaultQueryTimeoutMs: 60000,
-        generateHighQualityLinkPreview: true,
-        patchMessageBeforeSending: (message) => {
-          return message;
-        },
-        getMessage: async (key) => {
-          return { conversation: 'Mensagem não disponível' };
-        }
+        defaultQueryTimeoutMs: 60000
       });
 
       this.sock.ev.on('creds.update', saveCreds);
@@ -63,7 +53,7 @@ class WhatsAppService {
       this.sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
         
-        console.log('Status conexão:', connection, qr ? 'QR disponível' : '');
+        console.log('Status:', connection, qr ? 'QR disponível' : '');
 
         if (qr) {
           try {
@@ -102,7 +92,6 @@ class WhatsAppService {
             this.qrCode = null;
             this.io.emit('connection-status', { connected: false, reason: 'logged_out' });
             this.io.emit('qr-code', null);
-            
             setTimeout(() => this.connect(), 5000);
           } else if (statusCode === DisconnectReason.badSession) {
             console.log('Sessão inválida. Limpando...');
@@ -110,7 +99,7 @@ class WhatsAppService {
             setTimeout(() => this.connect(), 3000);
           } else if (this.retryCount < this.maxRetries) {
             this.retryCount++;
-            const delay = Math.min(1000 * Math.pow(2, this.retryCount), 60000);
+            const delay = Math.min(2000 * Math.pow(2, this.retryCount), 60000);
             console.log(`Tentativa ${this.retryCount}/${this.maxRetries} em ${delay/1000}s`);
             
             this.io.emit('connection-status', { 
@@ -120,9 +109,6 @@ class WhatsAppService {
             });
             
             setTimeout(() => this.connect(), delay);
-          } else {
-            console.log('Máximo de tentativas atingido');
-            this.io.emit('connection-status', { connected: false, reason: 'max_retries' });
           }
         }
       });
@@ -130,8 +116,6 @@ class WhatsAppService {
       return this.sock;
     } catch (error) {
       console.error('Erro ao conectar:', error.message);
-      this.io.emit('error', error.message);
-      
       if (this.retryCount < this.maxRetries) {
         this.retryCount++;
         setTimeout(() => this.connect(), 10000);
@@ -150,7 +134,6 @@ class WhatsAppService {
   async loadGroups() {
     try {
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
       const chats = await this.sock.groupFetchAllParticipating();
       
       if (chats && Object.keys(chats).length > 0) {
@@ -163,14 +146,9 @@ class WhatsAppService {
         }));
 
         this.groups.sort((a, b) => a.name.localeCompare(b.name));
-        
         this.saveGroupsToFile();
         this.io.emit('groups-update', this.groups);
-        
         console.log(`📋 ${this.groups.length} grupos carregados`);
-      } else {
-        console.log('Nenhum grupo encontrado');
-        this.io.emit('groups-update', []);
       }
     } catch (error) {
       console.error('Erro ao carregar grupos:', error.message);
@@ -197,7 +175,7 @@ class WhatsAppService {
         'utf8'
       );
     } catch (error) {
-      console.error('Erro ao salvar arquivo:', error);
+      console.error('Erro ao salvar:', error);
     }
   }
 
@@ -266,7 +244,7 @@ class WhatsAppService {
       case 'videoMessage':
         return `🎥 Vídeo${content?.caption ? ': ' + content.caption : ''}`;
       case 'audioMessage':
-        return '🎵 Mensagem de áudio';
+        return '🎵 Áudio';
       case 'documentMessage':
         return `📄 ${content?.fileName || 'Documento'}`;
       case 'stickerMessage':
