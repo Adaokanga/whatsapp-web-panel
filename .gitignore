@@ -1,0 +1,7 @@
+node_modules/
+auth_baileys/
+public/downloads/
+*.json
+!package.json
+!package-lock.json
+.env

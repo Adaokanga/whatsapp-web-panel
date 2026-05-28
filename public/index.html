@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Web Panel - Monitor de Grupos</title>
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            color: #667eea;
+            font-size: 24px;
+        }
+
+        .status-badge {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .status-connected {
+            background: #10b981;
+            color: white;
+        }
+
+        .status-disconnected {
+            background: #ef4444;
+            color: white;
+        }
+
+        .status-connecting {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .panel.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .panel h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 20px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .qr-container {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .qr-container img {
+            max-width: 300px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+        }
+
+        .groups-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .group-item {
+            padding: 10px;
+            border-bottom: 1px solid #e5e7eb;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .group-item:hover {
+            background: #f3f4f6;
+        }
+
+        .group-item.active {
+            background: #eef2ff;
+            border-left: 4px solid #667eea;
+        }
+
+        .group-name {
+            font-weight: bold;
+            color: #1f2937;
+        }
+
+        .group-id {
+            font-size: 12px;
+            color: #6b7280;
+            font-family: monospace;
+            margin-top: 5px;
+        }
+
+        .group-participants {
+            font-size: 12px;
+            color: #667eea;
+            margin-top: 3px;
+        }
+
+        .messages-container {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .message-item {
+            padding: 12px;
+            border-bottom: 1px solid #e5e7eb;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+
+        .message-sender {
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .message-time {
+            font-size: 12px;
+            color: #9ca3af;
+        }
+
+        .message-group {
+            font-size: 12px;
+            color: #6b7280;
+            font-style: italic;
+        }
+
+        .message-content {
+            color: #374151;
+            word-break: break-word;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, opacity 0.2s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            opacity: 0.9;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-info {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #9ca3af;
+        }
+
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e5e7eb;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📱 WhatsApp Web Panel</h1>
+            <div>
+                <span id="statusBadge" class="status-badge status-disconnected">
+                    🔴 Desconectado
+                </span>
+            </div>
+        </div>
+
+        <div class="stats" id="statsContainer" style="display: none;">
+            <div class="stat-card">
+                <div class="stat-value" id="groupsCount">0</div>
+                <div class="stat-label">Grupos</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="messagesCount">0</div>
+                <div class="stat-label">Mensagens</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="uptime">00:00</div>
+                <div class="stat-label">Tempo Online</div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="panel">
+                <h2>🔐 QR Code / Grupos</h2>
+                <div id="qrContainer" class="qr-container">
+                    <div class="empty-state">
+                        <p>Aguardando QR Code...</p>
+                    </div>
+                </div>
+                <div id="groupsContainer" style="display: none;">
+                    <input type="text" class="search-input" id="groupSearch" placeholder="🔍 Buscar grupo...">
+                    <div class="groups-list" id="groupsList"></div>
+                    <div class="button-group">
+                        <button class="btn btn-primary" onclick="downloadJSON()">💾 Baixar JSON</button>
+                        <button class="btn btn-info" onclick="downloadTXT()">📝 Baixar TXT</button>
+                        <button class="btn btn-success" onclick="downloadAll()">📦 Baixar Completo</button>
+                        <button class="btn btn-warning" onclick="copyAllIDs()">📋 Copiar IDs</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>💬 Mensagens em Tempo Real</h2>
+                <div class="messages-container" id="messagesContainer">
+                    <div class="empty-state">
+                        <p>📭 Nenhuma mensagem ainda...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let groups = [];
+        let selectedGroup = null;
+        let startTime = null;
+
+        // Conectar ao servidor
+        socket.on('connect', () => {
+            console.log('Conectado ao servidor');
+            socket.emit('get-status');
+        });
+
+        // Atualizar QR Code
+        socket.on('qr-code', (qrImage) => {
+            const qrContainer = document.getElementById('qrContainer');
+            if (qrImage) {
+                qrContainer.innerHTML = `
+                    <img src="${qrImage}" alt="QR Code">
+                    <p style="margin-top: 10px; color: #667eea;">
+                        📱 Escaneie com seu WhatsApp
+                    </p>
+                `;
+                updateStatus('connecting');
+            } else {
+                qrContainer.innerHTML = `
+                    <div class="empty-state">
+                        <p>✅ Conectado! QR Code não necessário.</p>
+                    </div>
+                `;
+            }
+        });
+
+        // Atualizar status de conexão
+        socket.on('connection-status', (status) => {
+            if (status.connected) {
+                updateStatus('connected');
+                startTime = new Date();
+                updateUptime();
+                document.getElementById('groupsContainer').style.display = 'block';
+                document.getElementById('statsContainer').style.display = 'grid';
+            } else {
+                updateStatus('disconnected');
+            }
+        });
+
+        // Atualizar lista de grupos
+        socket.on('groups-update', (updatedGroups) => {
+            groups = updatedGroups;
+            document.getElementById('groupsCount').textContent = groups.length;
+            renderGroups(groups);
+            
+            // Esconder QR e mostrar grupos
+            if (groups.length > 0) {
+                document.getElementById('qrContainer').style.display = 'none';
+                document.getElementById('groupsContainer').style.display = 'block';
+            }
+        });
+
+        // Nova mensagem recebida
+        socket.on('new-message', (message) => {
+            addMessageToUI(message);
+        });
+
+        // Contador de mensagens
+        socket.on('message-count', (count) => {
+            document.getElementById('messagesCount').textContent = count;
+        });
+
+        // Atualizar status
+        function updateStatus(status) {
+            const badge = document.getElementById('statusBadge');
+            switch(status) {
+                case 'connected':
+                    badge.className = 'status-badge status-connected';
+                    badge.innerHTML = '🟢 Conectado';
+                    break;
+                case 'disconnected':
+                    badge.className = 'status-badge status-disconnected';
+                    badge.innerHTML = '🔴 Desconectado';
+                    break;
+                case 'connecting':
+                    badge.className = 'status-badge status-connecting';
+                    badge.innerHTML = '🟡 Aguardando QR';
+                    break;
+            }
+        }
+
+        // Renderizar grupos
+        function renderGroups(groupList) {
+            const container = document.getElementById('groupsList');
+            container.innerHTML = groupList.map(group => `
+                <div class="group-item ${selectedGroup === group.id ? 'active' : ''}" 
+                     onclick="selectGroup('${group.id}')">
+                    <div class="group-name">${group.name}</div>
+                    <div class="group-id">${group.id}</div>
+                    <div class="group-participants">👥 ${group.participants} participantes</div>
+                </div>
+            `).join('');
+        }
+
+        // Selecionar grupo
+        function selectGroup(groupId) {
+            selectedGroup = groupId;
+            renderGroups(groups);
+            filterMessages(groupId);
+        }
+
+        // Adicionar mensagem à UI
+        function addMessageToUI(message) {
+            if (selectedGroup && message.groupId !== selectedGroup) return;
+            
+            const container = document.getElementById('messagesContainer');
+            
+            // Remover mensagem de "vazio"
+            if (container.querySelector('.empty-state')) {
+                container.innerHTML = '';
+            }
+            
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message-item';
+            
+            const time = new Date(message.timestamp).toLocaleTimeString('pt-BR');
+            
+            messageElement.innerHTML = `
+                <div class="message-header">
+                    <span class="message-sender">${message.fromName}</span>
+                    <span class="message-time">${time}</span>
+                </div>
+                <div class="message-group">📌 ${message.groupName}</div>
+                <div class="message-content">${message.content}</div>
+            `;
+            
+            container.insertBefore(messageElement, container.firstChild);
+            
+            // Limitar a 200 mensagens na UI
+            while (container.children.length > 200) {
+                container.removeChild(container.lastChild);
+            }
+        }
+
+        // Filtrar mensagens
+        function filterMessages(groupId) {
+            socket.emit('request-groups');
+        }
+
+        // Buscar grupos
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('groupSearch');
+            if (searchInput) {
+                searchInput.addEventListener('input', (e) => {
+                    const term = e.target.value.toLowerCase();
+                    const filtered = groups.filter(g => 
+                        g.name.toLowerCase().includes(term) ||
+                        g.id.toLowerCase().includes(term)
+                    );
+                    renderGroups(filtered);
+                });
+            }
+        });
+
+        // Atualizar uptime
+        function updateUptime() {
+            if (!startTime) return;
+            
+            setInterval(() => {
+                const now = new Date();
+                const diff = Math.floor((now - startTime) / 1000);
+                const hours = Math.floor(diff / 3600);
+                const minutes = Math.floor((diff % 3600) / 60);
+                const seconds = diff % 60;
+                
+                document.getElementById('uptime').textContent = 
+                    `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            }, 1000);
+        }
+
+        // Funções de download
+        function downloadJSON() {
+            window.location.href = '/api/download/groups-json';
+        }
+
+        function downloadTXT() {
+            window.location.href = '/api/download/groups-txt';
+        }
+
+        function downloadAll() {
+            window.location.href = '/api/download/all';
+        }
+
+        // Copiar todos os IDs
+        function copyAllIDs() {
+            const ids = groups.map(g => `${g.name} = ${g.id}`).join('\n');
+            navigator.clipboard.writeText(ids).then(() => {
+                alert('✅ IDs copiados para a área de transferência!');
+            });
+        }
+    </script>
+</body>
+</html>
