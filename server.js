@@ -8,11 +8,22 @@ const WhatsAppService = require('./whatsapp-service');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIO(server);
+const io = socketIO(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
 
 // Servir arquivos estáticos
 app.use(express.static('public'));
 app.use(express.json());
+
+// Criar pasta de downloads se não existir
+const downloadsPath = path.join(__dirname, 'public', 'downloads');
+if (!fs.existsSync(downloadsPath)) {
+  fs.mkdirSync(downloadsPath, { recursive: true });
+}
 
 // Instanciar serviço do WhatsApp
 const waService = new WhatsAppService(io);
@@ -74,7 +85,7 @@ app.get('/api/download/groups-txt', (req, res) => {
   res.send(txtContent);
 });
 
-// Rota para download do ZIP com tudo
+// Rota para download do ZIP
 app.get('/api/download/all', (req, res) => {
   res.setHeader('Content-Type', 'application/zip');
   res.setHeader('Content-Disposition', 'attachment; filename=whatsapp_data.zip');
@@ -82,7 +93,6 @@ app.get('/api/download/all', (req, res) => {
   const archive = archiver('zip', { zlib: { level: 9 } });
   archive.pipe(res);
   
-  // Adicionar JSON
   const groupsJSON = JSON.stringify({
     exportDate: new Date().toISOString(),
     totalGroups: waService.groups.length,
@@ -90,11 +100,9 @@ app.get('/api/download/all', (req, res) => {
   }, null, 2);
   archive.append(groupsJSON, { name: 'grupos_whatsapp.json' });
   
-  // Adicionar TXT com IDs
   const idsTXT = waService.groups.map(g => `${g.name} = ${g.id}`).join('\n');
   archive.append(idsTXT, { name: 'grupos_ids.txt' });
   
-  // Adicionar mensagens se existirem
   if (waService.recentMessages.length > 0) {
     const messagesJSON = JSON.stringify({
       exportDate: new Date().toISOString(),
@@ -107,14 +115,22 @@ app.get('/api/download/all', (req, res) => {
   archive.finalize();
 });
 
-// Rota para página inicial
+// Rota principal
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// WebSocket connection
+// WebSocket
 io.on('connection', (socket) => {
   console.log('🟢 Cliente conectado ao painel');
+  
+  // Enviar status atual
+  socket.emit('status-update', {
+    connected: waService.isConnected,
+    qrCode: waService.qrCode,
+    groups: waService.groups,
+    messages: waService.recentMessages.slice(-20)
+  });
   
   socket.on('get-status', () => {
     socket.emit('status-update', {
@@ -134,11 +150,29 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`\n🚀 Painel rodando em: http://localhost:${PORT}`);
+// Auto-ping para manter vivo
+setInterval(() => {
+  const url = process.env.RENDER_EXTERNAL_URL || 'http://localhost:' + PORT;
+  const http = require('http');
+  if (url.includes('onrender.com')) {
+    http.get(url + '/api/status', () => {});
+  }
+}, 600000);
+
+const PORT = process.env.PORT || 10000;
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`\n🚀 Painel rodando na porta ${PORT}`);
   console.log('📱 Abra o navegador e escaneie o QR Code\n');
   
-  // Iniciar conexão WhatsApp
-  waService.connect();
+  // Iniciar WhatsApp com delay para garantir
+  setTimeout(() => {
+    waService.connect();
+  }, 2000);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('Encerrando...');
+  server.close();
+  process.exit(0);
 });

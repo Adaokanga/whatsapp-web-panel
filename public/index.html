@@ -6,294 +6,184 @@
     <title>WhatsApp Web Panel - Monitor de Grupos</title>
     <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
             min-height: 100vh;
-            color: #333;
+            color: #e0e0e0;
         }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
+        
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        
         .header {
-            background: white;
-            border-radius: 10px;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
             padding: 20px;
             margin-bottom: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             display: flex;
             justify-content: space-between;
             align-items: center;
+            border: 1px solid rgba(255,255,255,0.2);
         }
-
+        
         .header h1 {
-            color: #667eea;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
             font-size: 24px;
         }
-
+        
         .status-badge {
             padding: 8px 16px;
             border-radius: 20px;
             font-weight: bold;
             font-size: 14px;
         }
-
-        .status-connected {
-            background: #10b981;
-            color: white;
-        }
-
-        .status-disconnected {
-            background: #ef4444;
-            color: white;
-        }
-
-        .status-connecting {
-            background: #f59e0b;
-            color: white;
-        }
-
-        .main-content {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
-
-        .panel {
-            background: white;
-            border-radius: 10px;
+        
+        .status-connected { background: #10b981; color: white; }
+        .status-disconnected { background: #ef4444; color: white; }
+        .status-connecting { background: #f59e0b; color: white; }
+        
+        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; }
+        
+        .stat-card {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
             padding: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border-radius: 15px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.2);
         }
-
-        .panel.full-width {
-            grid-column: 1 / -1;
+        
+        .stat-value { font-size: 32px; font-weight: bold; color: #667eea; }
+        .stat-label { font-size: 14px; color: #9ca3af; margin-top: 5px; }
+        
+        .main-content { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        
+        .panel {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid rgba(255,255,255,0.2);
         }
-
+        
         .panel h2 {
             color: #667eea;
             margin-bottom: 15px;
             font-size: 20px;
-            border-bottom: 2px solid #667eea;
+            border-bottom: 2px solid rgba(102,126,234,0.3);
             padding-bottom: 10px;
         }
-
-        .qr-container {
-            text-align: center;
-            padding: 20px;
-        }
-
+        
+        .qr-container { text-align: center; padding: 20px; }
+        
         .qr-container img {
             max-width: 300px;
-            border: 2px solid #e5e7eb;
+            border: 3px solid #667eea;
             border-radius: 10px;
-        }
-
-        .groups-list {
-            max-height: 500px;
-            overflow-y: auto;
-        }
-
-        .group-item {
+            background: white;
             padding: 10px;
-            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .groups-list { max-height: 500px; overflow-y: auto; }
+        
+        .group-item {
+            padding: 12px;
+            margin: 8px 0;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: all 0.3s;
+            border: 1px solid transparent;
         }
-
+        
         .group-item:hover {
-            background: #f3f4f6;
+            background: rgba(102,126,234,0.2);
+            transform: translateX(5px);
         }
-
+        
         .group-item.active {
-            background: #eef2ff;
-            border-left: 4px solid #667eea;
+            background: rgba(102,126,234,0.3);
+            border-color: #667eea;
         }
-
-        .group-name {
-            font-weight: bold;
-            color: #1f2937;
-        }
-
-        .group-id {
-            font-size: 12px;
-            color: #6b7280;
-            font-family: monospace;
-            margin-top: 5px;
-        }
-
-        .group-participants {
-            font-size: 12px;
-            color: #667eea;
-            margin-top: 3px;
-        }
-
-        .messages-container {
-            max-height: 600px;
-            overflow-y: auto;
-        }
-
+        
+        .group-name { font-weight: bold; color: #e0e0e0; }
+        .group-id { font-size: 11px; color: #667eea; font-family: monospace; margin-top: 3px; }
+        .group-participants { font-size: 12px; color: #9ca3af; margin-top: 3px; }
+        
+        .messages-container { max-height: 600px; overflow-y: auto; }
+        
         .message-item {
             padding: 12px;
-            border-bottom: 1px solid #e5e7eb;
+            margin: 8px 0;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
             animation: slideIn 0.3s ease;
         }
-
+        
         @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
         }
-
-        .message-header {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 5px;
-        }
-
-        .message-sender {
-            font-weight: bold;
-            color: #667eea;
-        }
-
-        .message-time {
-            font-size: 12px;
-            color: #9ca3af;
-        }
-
-        .message-group {
-            font-size: 12px;
-            color: #6b7280;
-            font-style: italic;
-        }
-
-        .message-content {
-            color: #374151;
-            word-break: break-word;
-        }
-
-        .button-group {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-            flex-wrap: wrap;
-        }
-
+        
+        .message-header { display: flex; justify-content: space-between; margin-bottom: 5px; }
+        .message-sender { font-weight: bold; color: #667eea; }
+        .message-time { font-size: 11px; color: #6b7280; }
+        .message-group { font-size: 11px; color: #9ca3af; font-style: italic; }
+        .message-content { color: #d1d5db; word-break: break-word; }
+        
+        .button-group { display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap; }
+        
         .btn {
             padding: 10px 20px;
             border: none;
-            border-radius: 5px;
+            border-radius: 8px;
             font-weight: bold;
             cursor: pointer;
-            transition: transform 0.2s, opacity 0.2s;
-            text-decoration: none;
-            display: inline-block;
+            transition: all 0.3s;
+            font-size: 13px;
         }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            opacity: 0.9;
-        }
-
-        .btn-primary {
-            background: #667eea;
-            color: white;
-        }
-
-        .btn-success {
-            background: #10b981;
-            color: white;
-        }
-
-        .btn-info {
-            background: #3b82f6;
-            color: white;
-        }
-
-        .btn-warning {
-            background: #f59e0b;
-            color: white;
-        }
-
-        .btn-danger {
-            background: #ef4444;
-            color: white;
-        }
-
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-
-        .stat-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px;
-            border-radius: 10px;
-            text-align: center;
-        }
-
-        .stat-value {
-            font-size: 32px;
-            font-weight: bold;
-        }
-
-        .stat-label {
-            font-size: 14px;
-            opacity: 0.9;
-            margin-top: 5px;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 40px;
-            color: #9ca3af;
-        }
-
-        .empty-state i {
-            font-size: 48px;
-            margin-bottom: 10px;
-        }
-
+        
+        .btn:hover { transform: translateY(-2px); opacity: 0.9; }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-success { background: #10b981; color: white; }
+        .btn-info { background: #3b82f6; color: white; }
+        .btn-warning { background: #f59e0b; color: white; }
+        
         .search-input {
             width: 100%;
             padding: 10px;
-            border: 2px solid #e5e7eb;
-            border-radius: 5px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            color: white;
             margin-bottom: 15px;
-            font-size: 14px;
         }
-
-        .search-input:focus {
-            outline: none;
-            border-color: #667eea;
+        
+        .search-input:focus { outline: none; border-color: #667eea; }
+        .search-input::placeholder { color: #9ca3af; }
+        
+        .empty-state { text-align: center; padding: 40px; color: #6b7280; }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(102,126,234,0.3);
+            border-radius: 50%;
+            border-top-color: #667eea;
+            animation: spin 1s ease-in-out infinite;
         }
-
+        
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
         @media (max-width: 768px) {
-            .main-content {
-                grid-template-columns: 1fr;
-            }
-            
-            .stats {
-                grid-template-columns: 1fr;
-            }
+            .main-content { grid-template-columns: 1fr; }
+            .stats { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -302,9 +192,7 @@
         <div class="header">
             <h1>📱 WhatsApp Web Panel</h1>
             <div>
-                <span id="statusBadge" class="status-badge status-disconnected">
-                    🔴 Desconectado
-                </span>
+                <span id="statusBadge" class="status-badge status-disconnected">🔴 Desconectado</span>
             </div>
         </div>
 
@@ -325,20 +213,22 @@
 
         <div class="main-content">
             <div class="panel">
-                <h2>🔐 QR Code / Grupos</h2>
+                <h2>🔐 Conexão WhatsApp</h2>
                 <div id="qrContainer" class="qr-container">
                     <div class="empty-state">
-                        <p>Aguardando QR Code...</p>
+                        <div class="loading-spinner"></div>
+                        <p style="margin-top: 20px;">Aguardando QR Code...</p>
+                        <p style="font-size: 12px; color: #6b7280;">Pode levar até 30 segundos</p>
                     </div>
                 </div>
                 <div id="groupsContainer" style="display: none;">
-                    <input type="text" class="search-input" id="groupSearch" placeholder="🔍 Buscar grupo...">
+                    <input type="text" class="search-input" id="groupSearch" placeholder="🔍 Buscar grupo por nome...">
                     <div class="groups-list" id="groupsList"></div>
                     <div class="button-group">
-                        <button class="btn btn-primary" onclick="downloadJSON()">💾 Baixar JSON</button>
-                        <button class="btn btn-info" onclick="downloadTXT()">📝 Baixar TXT</button>
-                        <button class="btn btn-success" onclick="downloadAll()">📦 Baixar Completo</button>
-                        <button class="btn btn-warning" onclick="copyAllIDs()">📋 Copiar IDs</button>
+                        <button class="btn btn-primary" onclick="downloadJSON()">💾 JSON</button>
+                        <button class="btn btn-info" onclick="downloadTXT()">📝 TXT</button>
+                        <button class="btn btn-success" onclick="downloadAll()">📦 ZIP</button>
+                        <button class="btn btn-warning" onclick="copyAllIDs()">📋 Copiar</button>
                     </div>
                 </div>
             </div>
@@ -347,7 +237,7 @@
                 <h2>💬 Mensagens em Tempo Real</h2>
                 <div class="messages-container" id="messagesContainer">
                     <div class="empty-state">
-                        <p>📭 Nenhuma mensagem ainda...</p>
+                        <p>📭 Aguardando mensagens...</p>
                     </div>
                 </div>
             </div>
@@ -355,74 +245,96 @@
     </div>
 
     <script>
-        const socket = io();
+        const socket = io({
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            reconnectionAttempts: Infinity
+        });
+        
         let groups = [];
         let selectedGroup = null;
         let startTime = null;
 
-        // Conectar ao servidor
         socket.on('connect', () => {
             console.log('Conectado ao servidor');
             socket.emit('get-status');
         });
 
-        // Atualizar QR Code
+        socket.on('connect_error', (error) => {
+            console.log('Erro de conexão:', error);
+            setTimeout(() => socket.connect(), 5000);
+        });
+
         socket.on('qr-code', (qrImage) => {
             const qrContainer = document.getElementById('qrContainer');
+            
             if (qrImage) {
                 qrContainer.innerHTML = `
-                    <img src="${qrImage}" alt="QR Code">
-                    <p style="margin-top: 10px; color: #667eea;">
-                        📱 Escaneie com seu WhatsApp
+                    <img src="${qrImage}" alt="QR Code" onload="this.style.display='block'" onerror="this.parentElement.innerHTML='<p style=color:red>Erro ao carregar QR</p>'">
+                    <p style="margin-top: 15px; color: #10b981; font-weight: bold;">
+                        📱 Escaneie com WhatsApp
+                    </p>
+                    <p style="font-size: 12px; color: #6b7280; margin-top: 10px;">
+                        Abra WhatsApp → Configurações → WhatsApp Web → Escanear QR Code
                     </p>
                 `;
                 updateStatus('connecting');
+                
+                // Mostrar stats mesmo durante QR
+                document.getElementById('statsContainer').style.display = 'grid';
+                document.getElementById('groupsContainer').style.display = 'none';
             } else {
                 qrContainer.innerHTML = `
                     <div class="empty-state">
-                        <p>✅ Conectado! QR Code não necessário.</p>
+                        <p style="color: #10b981; font-size: 18px;">✅ Conectado!</p>
+                        <p style="color: #6b7280;">Carregando grupos...</p>
                     </div>
                 `;
             }
         });
 
-        // Atualizar status de conexão
         socket.on('connection-status', (status) => {
             if (status.connected) {
                 updateStatus('connected');
                 startTime = new Date();
                 updateUptime();
+                document.getElementById('qrContainer').style.display = 'none';
                 document.getElementById('groupsContainer').style.display = 'block';
                 document.getElementById('statsContainer').style.display = 'grid';
+            } else if (status.reason === 'reconnecting') {
+                updateStatus('connecting');
+                document.getElementById('qrContainer').innerHTML = `
+                    <div class="empty-state">
+                        <div class="loading-spinner"></div>
+                        <p style="margin-top: 20px;">Reconectando... (Tentativa ${status.attempt || 1})</p>
+                    </div>
+                `;
             } else {
                 updateStatus('disconnected');
             }
         });
 
-        // Atualizar lista de grupos
         socket.on('groups-update', (updatedGroups) => {
-            groups = updatedGroups;
+            groups = updatedGroups || [];
             document.getElementById('groupsCount').textContent = groups.length;
             renderGroups(groups);
             
-            // Esconder QR e mostrar grupos
             if (groups.length > 0) {
                 document.getElementById('qrContainer').style.display = 'none';
                 document.getElementById('groupsContainer').style.display = 'block';
+                document.getElementById('statsContainer').style.display = 'grid';
             }
         });
 
-        // Nova mensagem recebida
         socket.on('new-message', (message) => {
             addMessageToUI(message);
         });
 
-        // Contador de mensagens
         socket.on('message-count', (count) => {
             document.getElementById('messagesCount').textContent = count;
         });
 
-        // Atualizar status
         function updateStatus(status) {
             const badge = document.getElementById('statusBadge');
             switch(status) {
@@ -436,38 +348,38 @@
                     break;
                 case 'connecting':
                     badge.className = 'status-badge status-connecting';
-                    badge.innerHTML = '🟡 Aguardando QR';
+                    badge.innerHTML = '🟡 Conectando...';
                     break;
             }
         }
 
-        // Renderizar grupos
         function renderGroups(groupList) {
             const container = document.getElementById('groupsList');
+            if (!groupList || groupList.length === 0) {
+                container.innerHTML = '<div class="empty-state"><p>Nenhum grupo encontrado</p></div>';
+                return;
+            }
+            
             container.innerHTML = groupList.map(group => `
                 <div class="group-item ${selectedGroup === group.id ? 'active' : ''}" 
                      onclick="selectGroup('${group.id}')">
-                    <div class="group-name">${group.name}</div>
-                    <div class="group-id">${group.id}</div>
+                    <div class="group-name">📌 ${group.name}</div>
+                    <div class="group-id">🆔 ${group.id}</div>
                     <div class="group-participants">👥 ${group.participants} participantes</div>
                 </div>
             `).join('');
         }
 
-        // Selecionar grupo
         function selectGroup(groupId) {
             selectedGroup = groupId;
             renderGroups(groups);
-            filterMessages(groupId);
         }
 
-        // Adicionar mensagem à UI
         function addMessageToUI(message) {
             if (selectedGroup && message.groupId !== selectedGroup) return;
             
             const container = document.getElementById('messagesContainer');
             
-            // Remover mensagem de "vazio"
             if (container.querySelector('.empty-state')) {
                 container.innerHTML = '';
             }
@@ -479,7 +391,7 @@
             
             messageElement.innerHTML = `
                 <div class="message-header">
-                    <span class="message-sender">${message.fromName}</span>
+                    <span class="message-sender">👤 ${message.fromName}</span>
                     <span class="message-time">${time}</span>
                 </div>
                 <div class="message-group">📌 ${message.groupName}</div>
@@ -488,68 +400,56 @@
             
             container.insertBefore(messageElement, container.firstChild);
             
-            // Limitar a 200 mensagens na UI
-            while (container.children.length > 200) {
+            while (container.children.length > 100) {
                 container.removeChild(container.lastChild);
             }
         }
 
-        // Filtrar mensagens
-        function filterMessages(groupId) {
-            socket.emit('request-groups');
-        }
-
-        // Buscar grupos
-        document.addEventListener('DOMContentLoaded', () => {
-            const searchInput = document.getElementById('groupSearch');
-            if (searchInput) {
-                searchInput.addEventListener('input', (e) => {
-                    const term = e.target.value.toLowerCase();
-                    const filtered = groups.filter(g => 
-                        g.name.toLowerCase().includes(term) ||
-                        g.id.toLowerCase().includes(term)
-                    );
-                    renderGroups(filtered);
-                });
-            }
+        document.getElementById('groupSearch')?.addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase();
+            const filtered = groups.filter(g => 
+                g.name.toLowerCase().includes(term) ||
+                g.id.toLowerCase().includes(term)
+            );
+            renderGroups(filtered);
         });
 
-        // Atualizar uptime
         function updateUptime() {
-            if (!startTime) return;
-            
             setInterval(() => {
-                const now = new Date();
-                const diff = Math.floor((now - startTime) / 1000);
-                const hours = Math.floor(diff / 3600);
-                const minutes = Math.floor((diff % 3600) / 60);
-                const seconds = diff % 60;
-                
+                if (!startTime) return;
+                const diff = Math.floor((Date.now() - startTime) / 1000);
+                const h = Math.floor(diff / 3600);
+                const m = Math.floor((diff % 3600) / 60);
+                const s = diff % 60;
                 document.getElementById('uptime').textContent = 
-                    `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                    `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
             }, 1000);
         }
 
-        // Funções de download
-        function downloadJSON() {
-            window.location.href = '/api/download/groups-json';
-        }
-
-        function downloadTXT() {
-            window.location.href = '/api/download/groups-txt';
-        }
-
-        function downloadAll() {
-            window.location.href = '/api/download/all';
-        }
-
-        // Copiar todos os IDs
+        function downloadJSON() { window.open('/api/download/groups-json', '_blank'); }
+        function downloadTXT() { window.open('/api/download/groups-txt', '_blank'); }
+        function downloadAll() { window.open('/api/download/all', '_blank'); }
+        
         function copyAllIDs() {
             const ids = groups.map(g => `${g.name} = ${g.id}`).join('\n');
             navigator.clipboard.writeText(ids).then(() => {
-                alert('✅ IDs copiados para a área de transferência!');
+                alert('✅ IDs copiados!');
+            }).catch(() => {
+                alert('❌ Erro ao copiar');
             });
         }
+
+        // Recarregar página se desconectar por muito tempo
+        let disconnectTimer;
+        socket.on('disconnect', () => {
+            disconnectTimer = setTimeout(() => {
+                location.reload();
+            }, 30000);
+        });
+        
+        socket.on('connect', () => {
+            if (disconnectTimer) clearTimeout(disconnectTimer);
+        });
     </script>
 </body>
 </html>
