@@ -3,522 +3,233 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WhatsApp Web Panel - Monitor de Grupos</title>
+    <title>WhatsApp Web Panel</title>
     <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-            min-height: 100vh;
-            color: #e0e0e0;
-        }
-        
-        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
-        
-        .header {
-            background: rgba(255,255,255,0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            padding: 20px 30px;
-            margin-bottom: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border: 1px solid rgba(255,255,255,0.2);
-        }
-        
-        .header h1 {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            font-size: 28px;
-        }
-        
-        .status-badge {
-            padding: 10px 20px;
-            border-radius: 25px;
-            font-weight: bold;
-            font-size: 14px;
-        }
-        
-        .status-connected { background: #10b981; color: white; }
-        .status-disconnected { background: #ef4444; color: white; }
-        .status-connecting { background: #f59e0b; color: white; animation: pulse 2s infinite; }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
-        }
-        
-        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; }
-        
-        .stat-card {
-            background: rgba(255,255,255,0.1);
-            backdrop-filter: blur(10px);
-            padding: 25px;
-            border-radius: 15px;
-            text-align: center;
-            border: 1px solid rgba(255,255,255,0.2);
-            transition: transform 0.3s;
-        }
-        
-        .stat-card:hover { transform: translateY(-5px); }
-        .stat-value { font-size: 36px; font-weight: bold; color: #667eea; }
-        .stat-label { font-size: 14px; color: #9ca3af; margin-top: 5px; }
-        
-        .main-content { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        
-        .panel {
-            background: rgba(255,255,255,0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            padding: 25px;
-            border: 1px solid rgba(255,255,255,0.2);
-        }
-        
-        .panel h2 {
-            color: #667eea;
-            margin-bottom: 20px;
-            font-size: 22px;
-            border-bottom: 2px solid rgba(102,126,234,0.3);
-            padding-bottom: 10px;
-        }
-        
-        .qr-container { text-align: center; padding: 20px; min-height: 300px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        
-        .qr-container img {
-            max-width: 280px;
-            border: 3px solid #667eea;
-            border-radius: 10px;
-            background: white;
-            padding: 10px;
-        }
-        
-        .qr-instructions {
-            margin-top: 20px;
-            color: #d1d5db;
-            font-size: 14px;
-            line-height: 1.8;
-        }
-        
-        .groups-list { max-height: 500px; overflow-y: auto; }
-        
-        .group-item {
-            padding: 15px;
-            margin: 8px 0;
-            background: rgba(255,255,255,0.05);
-            border-radius: 10px;
-            cursor: pointer;
-            transition: all 0.3s;
-            border: 1px solid transparent;
-        }
-        
-        .group-item:hover {
-            background: rgba(102,126,234,0.2);
-            transform: translateX(5px);
-        }
-        
-        .group-item.active {
-            background: rgba(102,126,234,0.3);
-            border-color: #667eea;
-        }
-        
-        .group-name { font-weight: bold; color: #e0e0e0; font-size: 15px; }
-        .group-id { font-size: 11px; color: #667eea; font-family: monospace; margin-top: 5px; }
-        .group-participants { font-size: 12px; color: #9ca3af; margin-top: 5px; }
-        
-        .messages-container { max-height: 600px; overflow-y: auto; }
-        
-        .message-item {
-            padding: 15px;
-            margin: 8px 0;
-            background: rgba(255,255,255,0.05);
-            border-radius: 10px;
-            animation: slideIn 0.3s ease;
-        }
-        
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateX(-10px); }
-            to { opacity: 1; transform: translateX(0); }
-        }
-        
-        .message-header { display: flex; justify-content: space-between; margin-bottom: 5px; }
-        .message-sender { font-weight: bold; color: #667eea; }
-        .message-time { font-size: 11px; color: #6b7280; }
-        .message-group { font-size: 11px; color: #9ca3af; font-style: italic; margin-bottom: 5px; }
-        .message-content { color: #d1d5db; word-break: break-word; line-height: 1.5; }
-        
-        .button-group { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
-        
-        .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 8px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s;
-            font-size: 13px;
-            color: white;
-        }
-        
-        .btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
-        .btn:active { transform: translateY(0); }
-        
-        .btn-primary { background: #667eea; }
-        .btn-success { background: #10b981; }
-        .btn-info { background: #3b82f6; }
-        .btn-warning { background: #f59e0b; }
-        .btn-danger { background: #ef4444; }
-        
-        .search-input {
-            width: 100%;
-            padding: 12px 15px;
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 10px;
-            color: white;
-            margin-bottom: 15px;
-            font-size: 14px;
-            transition: border-color 0.3s;
-        }
-        
-        .search-input:focus { outline: none; border-color: #667eea; }
-        .search-input::placeholder { color: #6b7280; }
-        
-        .empty-state { text-align: center; padding: 40px; color: #6b7280; }
-        
-        .loading-spinner {
-            display: inline-block;
-            width: 50px;
-            height: 50px;
-            border: 3px solid rgba(102,126,234,0.3);
-            border-radius: 50%;
-            border-top-color: #667eea;
-            animation: spin 1s ease-in-out infinite;
-        }
-        
-        @keyframes spin { to { transform: rotate(360deg); } }
-        
-        @media (max-width: 768px) {
-            .main-content { grid-template-columns: 1fr; }
-            .stats { grid-template-columns: 1fr; }
-            .header { flex-direction: column; gap: 10px; }
-        }
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',sans-serif;background:#1a1a2e;min-height:100vh;color:#e0e0e0}
+        .container{max-width:1200px;margin:0 auto;padding:15px}
+        .header{background:#16213e;border-radius:12px;padding:15px 20px;margin-bottom:15px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+        .header h1{color:#e94560;font-size:22px}
+        .status{padding:8px 16px;border-radius:20px;font-weight:bold;font-size:13px}
+        .connected{background:#00c853;color:#fff}
+        .waiting{background:#ff9100;color:#fff;animation:pulse 1.5s infinite}
+        .disconnected{background:#ff1744;color:#fff}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+        .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:15px}
+        .stat{background:#16213e;padding:18px;border-radius:10px;text-align:center}
+        .stat-val{font-size:28px;font-weight:bold;color:#e94560}
+        .stat-label{font-size:11px;color:#999;margin-top:3px}
+        .main{display:grid;grid-template-columns:1fr 1fr;gap:15px}
+        .panel{background:#16213e;border-radius:12px;padding:18px}
+        .panel h2{color:#e94560;margin-bottom:12px;font-size:18px;border-bottom:2px solid rgba(233,69,96,.2);padding-bottom:8px}
+        .qr-box{text-align:center;padding:15px;min-height:250px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+        .qr-box img{max-width:240px;border:3px solid #e94560;border-radius:10px;background:#fff;padding:8px}
+        .groups-list{max-height:350px;overflow-y:auto}
+        .group-item{padding:12px;margin:5px 0;background:#0f3460;border-radius:8px;cursor:pointer;transition:.2s;border:2px solid transparent}
+        .group-item:hover{background:#1a4a7a}
+        .group-item.selected{border-color:#e94560;background:#1a3360}
+        .group-name{font-weight:bold;color:#fff;font-size:14px}
+        .group-id{font-size:11px;color:#e94560;font-family:monospace;margin-top:3px}
+        .group-info{font-size:11px;color:#999;margin-top:2px}
+        .msgs-box{max-height:450px;overflow-y:auto}
+        .msg{padding:12px;margin:5px 0;background:#0f3460;border-radius:8px;animation:slide .3s}
+        @keyframes slide{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
+        .msg-sender{font-weight:bold;color:#e94560;font-size:13px}
+        .msg-time{font-size:10px;color:#666}
+        .msg-group{font-size:10px;color:#999;margin:3px 0}
+        .msg-text{color:#ddd;font-size:13px;margin-top:3px;word-break:break-word}
+        .btn-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+        .btn{padding:10px 16px;border:none;border-radius:8px;font-weight:bold;cursor:pointer;color:#fff;font-size:12px;transition:.2s}
+        .btn:hover{opacity:.85;transform:translateY(-1px)}
+        .btn-json{background:#e94560}
+        .btn-txt{background:#533483}
+        .btn-zip{background:#00c853}
+        .btn-copy{background:#ff9100}
+        .btn-load{background:#2196f3}
+        .search-input{width:100%;padding:10px;background:#0f3460;border:1px solid #333;border-radius:8px;color:#fff;margin-bottom:10px;font-size:13px}
+        .search-input:focus{outline:none;border-color:#e94560}
+        .empty-state{text-align:center;padding:30px;color:#666}
+        .spinner{width:35px;height:35px;border:3px solid #333;border-top-color:#e94560;border-radius:50%;animation:spin 1s linear infinite;margin:15px auto}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        .alert{background:#e94560;color:#fff;padding:12px;border-radius:8px;margin:10px 0;text-align:center;font-size:13px}
+        @media(max-width:768px){.main{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}}
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>📱 WhatsApp Web Panel</h1>
-            <div style="display: flex; gap: 10px; align-items: center;">
-                <span id="statusBadge" class="status-badge status-disconnected">🔴 Desconectado</span>
-                <button class="btn btn-danger" onclick="reconnect()" style="font-size: 12px; padding: 8px 15px;">🔄 Reconectar</button>
+            <span id="statusBadge" class="status disconnected">🔴 Desconectado</span>
+        </div>
+
+        <div class="stats" id="statsBox">
+            <div class="stat">
+                <div class="stat-val" id="groupCount">0</div>
+                <div class="stat-label">Grupos Carregados</div>
+            </div>
+            <div class="stat">
+                <div class="stat-val" id="msgCount">0</div>
+                <div class="stat-label">Mensagens</div>
             </div>
         </div>
 
-        <div class="stats" id="statsContainer" style="display: none;">
-            <div class="stat-card">
-                <div class="stat-value" id="groupsCount">0</div>
-                <div class="stat-label">Grupos Monitorados</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value" id="messagesCount">0</div>
-                <div class="stat-label">Mensagens Recebidas</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value" id="uptime">00:00:00</div>
-                <div class="stat-label">Tempo Online</div>
-            </div>
-        </div>
-
-        <div class="main-content">
+        <div class="main">
+            <!-- PAINEL ESQUERDO: QR + GRUPOS + DOWNLOADS -->
             <div class="panel">
-                <h2>🔐 Conexão WhatsApp</h2>
-                <div id="qrContainer" class="qr-container">
-                    <div class="empty-state">
-                        <div class="loading-spinner"></div>
-                        <p style="margin-top: 20px; font-size: 16px;">Aguardando QR Code...</p>
-                        <p style="font-size: 12px; color: #6b7280; margin-top: 10px;">Isso pode levar até 30 segundos</p>
-                    </div>
+                <h2>🔐 Conexão & Grupos</h2>
+                
+                <!-- Área do QR Code -->
+                <div id="qrArea" class="qr-box">
+                    <div class="spinner"></div>
+                    <p style="margin-top:10px">Aguardando QR Code...</p>
                 </div>
-                <div id="groupsContainer" style="display: none;">
-                    <input type="text" class="search-input" id="groupSearch" placeholder="🔍 Buscar grupo por nome ou ID...">
-                    <div class="groups-list" id="groupsList"></div>
-                    <div class="button-group">
-                        <button class="btn btn-primary" onclick="downloadJSON()">💾 Baixar JSON</button>
-                        <button class="btn btn-info" onclick="downloadTXT()">📝 Baixar TXT</button>
-                        <button class="btn btn-success" onclick="downloadAll()">📦 Baixar ZIP</button>
-                        <button class="btn btn-warning" onclick="copyAllIDs()">📋 Copiar IDs</button>
+
+                <!-- Área dos Grupos (escondida até conectar) -->
+                <div id="groupsArea" style="display:none">
+                    <input type="text" class="search-input" id="searchInput" placeholder="🔍 Buscar grupo por nome..." oninput="filterGroups()">
+                    
+                    <div class="groups-list" id="groupsList">
+                        <div class="empty-state">Carregando grupos...</div>
+                    </div>
+
+                    <!-- BOTÕES DE DOWNLOAD - VISÍVEIS SEMPRE -->
+                    <div style="background:#0f3460;border-radius:10px;padding:15px;margin-top:15px">
+                        <p style="font-weight:bold;color:#e94560;margin-bottom:10px">📥 DOWNLOAD DOS GRUPOS</p>
+                        <div class="btn-row">
+                            <button class="btn btn-json" onclick="downloadJSON()">💾 Baixar JSON</button>
+                            <button class="btn btn-txt" onclick="downloadTXT()">📝 Baixar TXT</button>
+                            <button class="btn btn-zip" onclick="downloadZIP()">📦 Baixar ZIP</button>
+                            <button class="btn btn-copy" onclick="copyIDs()">📋 Copiar IDs</button>
+                            <button class="btn btn-load" onclick="loadGroups()">🔄 Recarregar Grupos</button>
+                        </div>
+                        <p style="font-size:10px;color:#999;margin-top:8px">* Os downloads só funcionam após os grupos carregarem</p>
                     </div>
                 </div>
             </div>
 
+            <!-- PAINEL DIREITO: MENSAGENS -->
             <div class="panel">
                 <h2>💬 Mensagens em Tempo Real</h2>
-                <div class="messages-container" id="messagesContainer">
-                    <div class="empty-state">
-                        <p>📭 Aguardando mensagens dos grupos...</p>
-                        <p style="font-size: 12px; color: #6b7280; margin-top: 10px;">As mensagens aparecerão aqui em tempo real</p>
-                    </div>
+                <div class="msgs-box" id="msgsBox">
+                    <div class="empty-state">📭 Aguardando mensagens...</div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Configuração do Socket.IO
-        const socket = io({
-            transports: ['websocket', 'polling'],
-            reconnection: true,
-            reconnectionDelay: 1000,
-            reconnectionDelayMax: 5000,
-            reconnectionAttempts: Infinity
-        });
-        
-        let groups = [];
-        let selectedGroup = null;
-        let startTime = null;
-        let qrCheckInterval = null;
+        var groups = [];
+        var selGroup = null;
+        var socket = io({transports:['websocket','polling'],reconnection:true});
 
-        // Função para buscar QR Code via API REST (método alternativo)
-        async function fetchQRCode() {
-            try {
-                const response = await fetch('/api/qrcode');
-                const data = await response.json();
-                
-                if (data.success && data.qrCode) {
-                    showQRCode(data.qrCode);
-                    return true;
-                } else if (data.connected) {
-                    showConnectedState();
-                    return true;
-                }
-                return false;
-            } catch (error) {
-                return false;
-            }
+        // ========== BUSCAR QR CODE ==========
+        function checkQR() {
+            fetch('/api/qrcode').then(r=>r.json()).then(d=>{
+                if(d.success && d.qrCode) showQR(d.qrCode);
+                else if(d.connected) connectedUI();
+            }).catch(()=>{});
         }
 
-        // Exibir QR Code
-        function showQRCode(qrData) {
-            const container = document.getElementById('qrContainer');
-            container.innerHTML = `
-                <img src="${qrData}" alt="QR Code WhatsApp" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><rect fill=%22%23ddd%22 width=%22200%22 height=%22200%22/><text fill=%22%23999%22 x=%2250%22 y=%22110%22>QR Code</text></svg>'">
-                <div class="qr-instructions">
-                    <p style="font-size: 16px; color: #10b981; font-weight: bold;">📱 Escaneie o QR Code</p>
-                    <p>1. Abra o WhatsApp no celular</p>
-                    <p>2. Toque em <strong>Configurações</strong></p>
-                    <p>3. Selecione <strong>WhatsApp Web</strong></p>
-                    <p>4. Escaneie o código acima</p>
-                </div>
-                <button class="btn btn-warning" onclick="location.reload()" style="margin-top: 15px;">
-                    🔄 Atualizar QR Code
-                </button>
+        function showQR(data) {
+            document.getElementById('qrArea').innerHTML = `
+                <img src="${data}" alt="QR Code">
+                <p style="margin-top:10px;color:#00c853;font-weight:bold">📱 Escaneie com WhatsApp</p>
+                <p style="font-size:11px;color:#999">WhatsApp → Aparelhos conectados → Escanear</p>
+                <button class="btn btn-load" onclick="location.reload()" style="margin-top:10px">🔄 Atualizar</button>
             `;
-            updateStatus('connecting');
-            document.getElementById('statsContainer').style.display = 'grid';
+            document.getElementById('statusBadge').className = 'status waiting';
+            document.getElementById('statusBadge').innerHTML = '🟡 Aguardando scan...';
         }
 
-        // Estado conectado
-        function showConnectedState() {
-            document.getElementById('qrContainer').innerHTML = `
-                <div class="empty-state">
-                    <p style="color: #10b981; font-size: 24px;">✅ Conectado!</p>
-                    <p style="color: #d1d5db; margin-top: 10px;">WhatsApp conectado com sucesso</p>
-                    <p style="color: #6b7280; font-size: 12px; margin-top: 10px;">Carregando grupos e monitorando mensagens...</p>
-                </div>
-            `;
-            updateStatus('connected');
+        function connectedUI() {
+            document.getElementById('statusBadge').className = 'status connected';
+            document.getElementById('statusBadge').innerHTML = '🟢 Conectado';
+            document.getElementById('qrArea').style.display = 'none';
+            document.getElementById('groupsArea').style.display = 'block';
         }
 
-        // Verificar QR Code a cada 3 segundos via API
-        qrCheckInterval = setInterval(async () => {
-            const hasQR = await fetchQRCode();
-            if (hasQR) {
-                clearInterval(qrCheckInterval);
-            }
-        }, 3000);
+        // ========== SOCKET EVENTS ==========
+        socket.on('connect',()=>{socket.emit('get-qr');});
 
-        // Eventos Socket.IO
-        socket.on('connect', () => {
-            console.log('🟢 WebSocket conectado');
-            socket.emit('get-qr'); // Solicitar QR via WebSocket
+        socket.on('qr-code',qr=>{if(qr)showQR(qr);});
+
+        socket.on('connection-status',s=>{
+            if(s.connected) connectedUI();
         });
 
-        socket.on('qr-code', (qrImage) => {
-            if (qrImage) {
-                showQRCode(qrImage);
-                if (qrCheckInterval) clearInterval(qrCheckInterval);
-            }
-        });
-
-        socket.on('connection-status', (status) => {
-            if (status.connected) {
-                updateStatus('connected');
-                startTime = new Date();
-                updateUptime();
-                document.getElementById('qrContainer').style.display = 'none';
-                document.getElementById('groupsContainer').style.display = 'block';
-                document.getElementById('statsContainer').style.display = 'grid';
-            } else if (status.reason === 'reconnecting') {
-                updateStatus('connecting');
-            }
-        });
-
-        socket.on('groups-update', (updatedGroups) => {
-            groups = updatedGroups || [];
-            document.getElementById('groupsCount').textContent = groups.length;
+        socket.on('groups-update',g=>{
+            groups = g || [];
+            document.getElementById('groupCount').textContent = groups.length;
             renderGroups(groups);
-            
-            if (groups.length > 0) {
-                document.getElementById('qrContainer').style.display = 'none';
-                document.getElementById('groupsContainer').style.display = 'block';
-                document.getElementById('statsContainer').style.display = 'grid';
+            if(groups.length > 0) {
+                document.getElementById('qrArea').style.display = 'none';
+                document.getElementById('groupsArea').style.display = 'block';
             }
         });
 
-        socket.on('new-message', (message) => {
-            addMessageToUI(message);
+        socket.on('new-message',m=>{
+            if(selGroup && m.groupId !== selGroup) return;
+            var box = document.getElementById('msgsBox');
+            if(box.querySelector('.empty-state')) box.innerHTML = '';
+            var el = document.createElement('div');
+            el.className = 'msg';
+            el.innerHTML = `<div style="display:flex;justify-content:space-between"><span class="msg-sender">👤 ${m.fromName}</span><span class="msg-time">${new Date(m.timestamp).toLocaleTimeString('pt-BR')}</span></div><div class="msg-group">📌 ${m.groupName}</div><div class="msg-text">${m.content}</div>`;
+            box.insertBefore(el,box.firstChild);
+            while(box.children.length>100) box.removeChild(box.lastChild);
         });
 
-        socket.on('message-count', (count) => {
-            document.getElementById('messagesCount').textContent = count;
-        });
+        socket.on('message-count',c=>{document.getElementById('msgCount').textContent=c;});
 
-        socket.on('disconnect', () => {
-            console.log('🔴 WebSocket desconectado');
-        });
-
-        // Atualizar status visual
-        function updateStatus(status) {
-            const badge = document.getElementById('statusBadge');
-            switch(status) {
-                case 'connected':
-                    badge.className = 'status-badge status-connected';
-                    badge.innerHTML = '🟢 Conectado';
-                    break;
-                case 'disconnected':
-                    badge.className = 'status-badge status-disconnected';
-                    badge.innerHTML = '🔴 Desconectado';
-                    break;
-                case 'connecting':
-                    badge.className = 'status-badge status-connecting';
-                    badge.innerHTML = '🟡 Conectando...';
-                    break;
-            }
-        }
-
-        // Renderizar lista de grupos
-        function renderGroups(groupList) {
-            const container = document.getElementById('groupsList');
-            if (!groupList || groupList.length === 0) {
-                container.innerHTML = '<div class="empty-state"><p>Nenhum grupo encontrado</p></div>';
-                return;
-            }
-            
-            container.innerHTML = groupList.map(group => `
-                <div class="group-item ${selectedGroup === group.id ? 'active' : ''}" 
-                     onclick="selectGroup('${group.id}')">
-                    <div class="group-name">📌 ${group.name}</div>
-                    <div class="group-id">🆔 ${group.id}</div>
-                    <div class="group-participants">👥 ${group.participants} participantes</div>
+        // ========== RENDERIZAR GRUPOS ==========
+        function renderGroups(list) {
+            var c = document.getElementById('groupsList');
+            if(!list||list.length===0){c.innerHTML='<div class="empty-state">Nenhum grupo encontrado. Clique em "Recarregar Grupos"</div>';return}
+            c.innerHTML = list.map(g=>`
+                <div class="group-item${selGroup===g.id?' selected':''}" onclick="selectGroup('${g.id}')">
+                    <div class="group-name">📌 ${g.name}</div>
+                    <div class="group-id">🆔 ${g.id}</div>
+                    <div class="group-info">👥 ${g.participants} participantes</div>
                 </div>
             `).join('');
         }
 
-        // Selecionar grupo para filtrar mensagens
-        function selectGroup(groupId) {
-            selectedGroup = groupId === selectedGroup ? null : groupId;
-            renderGroups(groups);
+        function selectGroup(id){selGroup=selGroup===id?null:id;renderGroups(groups)}
+        function filterGroups(){
+            var t=document.getElementById('searchInput').value.toLowerCase();
+            renderGroups(groups.filter(g=>g.name.toLowerCase().includes(t)||g.id.includes(t)));
         }
 
-        // Adicionar mensagem na UI
-        function addMessageToUI(message) {
-            if (selectedGroup && message.groupId !== selectedGroup) return;
-            
-            const container = document.getElementById('messagesContainer');
-            if (container.querySelector('.empty-state')) {
-                container.innerHTML = '';
-            }
-            
-            const element = document.createElement('div');
-            element.className = 'message-item';
-            
-            const time = new Date(message.timestamp).toLocaleTimeString('pt-BR');
-            
-            element.innerHTML = `
-                <div class="message-header">
-                    <span class="message-sender">👤 ${message.fromName}</span>
-                    <span class="message-time">${time}</span>
-                </div>
-                <div class="message-group">📌 ${message.groupName}</div>
-                <div class="message-content">${message.content}</div>
-            `;
-            
-            container.insertBefore(element, container.firstChild);
-            
-            // Limitar a 100 mensagens visíveis
-            while (container.children.length > 100) {
-                container.removeChild(container.lastChild);
-            }
+        // ========== DOWNLOADS ==========
+        function downloadJSON(){
+            if(groups.length===0){alert('⚠️ Nenhum grupo carregado! Clique em "Recarregar Grupos" primeiro.');return}
+            window.open('/api/download/groups-json','_blank');
         }
-
-        // Busca de grupos
-        document.getElementById('groupSearch')?.addEventListener('input', (e) => {
-            const term = e.target.value.toLowerCase();
-            const filtered = groups.filter(g => 
-                g.name.toLowerCase().includes(term) || 
-                g.id.toLowerCase().includes(term)
-            );
-            renderGroups(filtered);
-        });
-
-        // Atualizar tempo online
-        function updateUptime() {
-            setInterval(() => {
-                if (!startTime) return;
-                const diff = Math.floor((Date.now() - startTime) / 1000);
-                const h = Math.floor(diff / 3600);
-                const m = Math.floor((diff % 3600) / 60);
-                const s = diff % 60;
-                document.getElementById('uptime').textContent = 
-                    `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-            }, 1000);
+        function downloadTXT(){
+            if(groups.length===0){alert('⚠️ Nenhum grupo carregado!');return}
+            window.open('/api/download/groups-txt','_blank');
         }
-
-        // Downloads
-        function downloadJSON() { window.open('/api/download/groups-json', '_blank'); }
-        function downloadTXT() { window.open('/api/download/groups-txt', '_blank'); }
-        function downloadAll() { window.open('/api/download/all', '_blank'); }
-        
-        // Copiar IDs
-        function copyAllIDs() {
-            if (groups.length === 0) {
-                alert('❌ Nenhum grupo para copiar');
-                return;
-            }
-            const ids = groups.map(g => `${g.name} = ${g.id}`).join('\n');
-            navigator.clipboard.writeText(ids).then(() => {
-                alert('✅ ' + groups.length + ' IDs copiados com sucesso!');
-            }).catch(() => {
-                alert('❌ Erro ao copiar. Tente novamente.');
+        function downloadZIP(){
+            if(groups.length===0){alert('⚠️ Nenhum grupo carregado!');return}
+            window.open('/api/download/all','_blank');
+        }
+        function copyIDs(){
+            if(groups.length===0){alert('⚠️ Nenhum grupo carregado!');return}
+            navigator.clipboard.writeText(groups.map(g=>g.name+' = '+g.id).join('\n')).then(()=>alert('✅ '+groups.length+' IDs copiados!'));
+        }
+        function loadGroups(){
+            document.getElementById('groupsList').innerHTML='<div class="empty-state"><div class="spinner"></div><p>Carregando grupos...</p></div>';
+            socket.emit('load-groups');
+            fetch('/api/load-groups').then(r=>r.json()).then(d=>{
+                if(d.success){groups=d.groups;renderGroups(groups);document.getElementById('groupCount').textContent=groups.length}
+                else alert('❌ Erro ao carregar grupos');
             });
         }
 
-        // Reconectar (gera novo QR Code)
-        async function reconnect() {
-            if (confirm('Tem certeza que deseja reconectar? Um novo QR Code será gerado.')) {
-                try {
-                    await fetch('/api/reconnect');
-                    alert('✅ Reconectando... Aguarde 10 segundos e recarregue a página.');
-                    setTimeout(() => location.reload(), 10000);
-                } catch (error) {
-                    alert('❌ Erro ao reconectar.');
-                }
-            }
-        }
+        // ========== INICIAR ==========
+        setInterval(checkQR,3000);
+        checkQR();
+        loadGroups();
     </script>
 </body>
 </html>
